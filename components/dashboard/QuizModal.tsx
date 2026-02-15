@@ -115,7 +115,17 @@ export function QuizModal({ skillId, skillName, isOpen, onClose }: QuizModalProp
       // If passed, trigger confetti and auto-close after 2 seconds
       if (result.passed) {
         toast.success(`Quiz passed! Skill marked as completed. (${result.score}%)`)
+        
+        // Immediate confetti explosion
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        })
+        
+        // Trigger continuous confetti animation
         triggerConfetti()
+        
         setTimeout(() => {
           onClose()
         }, 2000)
@@ -269,23 +279,112 @@ export function QuizModal({ skillId, skillName, isOpen, onClose }: QuizModalProp
                 className="py-8"
               >
                 <div className="flex flex-col items-center justify-center space-y-6">
-                  {/* Icon */}
+                  {/* Icon with Success Badge */}
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+                    className="relative"
                   >
                     {passed ? (
-                      <div className="relative">
-                        <Trophy className="h-24 w-24 text-green-600" />
+                      <>
+                        {/* Success Badge with Shining Effect */}
                         <motion.div
-                          animate={{ rotate: [0, 10, -10, 10, 0] }}
-                          transition={{ duration: 0.5, repeat: 2 }}
-                          className="absolute inset-0"
+                          initial={{ scale: 0, rotate: -180 }}
+                          animate={{ 
+                            scale: 1, 
+                            rotate: 0,
+                          }}
+                          transition={{ 
+                            type: 'spring', 
+                            stiffness: 200, 
+                            damping: 15,
+                            delay: 0.2 
+                          }}
+                          className="relative inline-block"
                         >
-                          <Trophy className="h-24 w-24 text-green-600" />
+                          {/* Glowing background rings */}
+                          <motion.div
+                            animate={{
+                              scale: [1, 1.2, 1],
+                              opacity: [0.5, 0.8, 0.5],
+                            }}
+                            transition={{
+                              duration: 2,
+                              repeat: Infinity,
+                              ease: "easeInOut"
+                            }}
+                            className="absolute inset-0 rounded-full bg-green-400 blur-2xl"
+                          />
+                          <motion.div
+                            animate={{
+                              scale: [1, 1.1, 1],
+                              opacity: [0.3, 0.6, 0.3],
+                            }}
+                            transition={{
+                              duration: 1.5,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                              delay: 0.5
+                            }}
+                            className="absolute inset-0 rounded-full bg-yellow-300 blur-xl"
+                          />
+                          
+                          {/* Trophy with wiggle animation */}
+                          <div className="relative bg-white rounded-full p-6 shadow-2xl border-4 border-green-500">
+                            <motion.div
+                              animate={{ rotate: [0, 10, -10, 10, 0] }}
+                              transition={{ duration: 0.5, repeat: 2 }}
+                            >
+                              <Trophy className="h-24 w-24 text-green-600" />
+                            </motion.div>
+                          </div>
+                          
+                          {/* Sparkle effects */}
+                          {[...Array(6)].map((_, i) => (
+                            <motion.div
+                              key={i}
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{
+                                scale: [0, 1, 0],
+                                opacity: [0, 1, 0],
+                                x: [0, Math.cos(i * 60 * Math.PI / 180) * 60],
+                                y: [0, Math.sin(i * 60 * Math.PI / 180) * 60],
+                              }}
+                              transition={{
+                                duration: 1,
+                                repeat: Infinity,
+                                delay: i * 0.1,
+                                ease: "easeOut"
+                              }}
+                              className="absolute top-1/2 left-1/2 w-2 h-2 bg-yellow-400 rounded-full"
+                              style={{
+                                boxShadow: '0 0 10px 2px rgba(250, 204, 21, 0.8)'
+                              }}
+                            />
+                          ))}
+                          
+                          {/* Shine overlay animation */}
+                          <motion.div
+                            initial={{ x: '-100%', opacity: 0 }}
+                            animate={{ 
+                              x: '200%',
+                              opacity: [0, 1, 0]
+                            }}
+                            transition={{
+                              duration: 1.5,
+                              repeat: Infinity,
+                              repeatDelay: 0.5,
+                              ease: "easeInOut"
+                            }}
+                            className="absolute inset-0 bg-linear-to-r from-transparent via-white to-transparent"
+                            style={{
+                              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent)',
+                              pointerEvents: 'none'
+                            }}
+                          />
                         </motion.div>
-                      </div>
+                      </>
                     ) : (
                       <XCircle className="h-24 w-24 text-red-600" />
                     )}

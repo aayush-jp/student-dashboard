@@ -4,6 +4,7 @@ import { getStudentRoadmap, getWeeklyEffort, getSmartRecommendations } from './a
 import { SkillRoadmap } from '@/components/dashboard/SkillRoadmap'
 import { EffortChart } from '@/components/dashboard/EffortChart'
 import { AIAdvisor } from '@/components/dashboard/AIAdvisor'
+import { PredictionCard } from '@/components/dashboard/PredictionCard'
 import { signout } from '@/app/login/actions'
 import { Button } from '@/components/ui/button'
 import { LogOut } from 'lucide-react'
@@ -53,14 +54,18 @@ export default async function DashboardPage() {
         </form>
       </div>
 
-      {/* Top Row: Analytics & Advisor */}
+      {/* Top Row: Analytics, Prediction & Advisor */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="col-span-4">
-          {/* The Recharts Component */}
+        <div className="col-span-3">
+          {/* Learning Velocity Chart */}
           <EffortChart data={effortData} />
         </div>
-        <div className="col-span-3">
-          {/* The AI Advisor Component */}
+        <div className="col-span-2">
+          {/* ML-Powered Completion Prediction */}
+          <PredictionCard />
+        </div>
+        <div className="col-span-2">
+          {/* AI Learning Advisor */}
           <AIAdvisor recommendations={recs} />
         </div>
       </div>

@@ -1029,3 +1029,203 @@ export async function submitQuiz({
     }
   }
 }
+
+// ============================================================================
+// COMPLETION PREDICTION ENGINE
+// ============================================================================
+
+type StudySession = {
+  date: string // Format: "YYYY-MM-DD"
+  hours: number
+}
+
+type PredictionRequest = {
+  sessions: StudySession[]
+  remaining_hours: number
+}
+
+type PredictionResponse = {
+  status: 'success' | 'insufficient_data' | 'stalled'
+  predicted_date?: string
+  velocity_hours_per_day?: number
+  message?: string
+}
+
+export type GetCompletionPredictionResult = {
+  prediction: PredictionResponse | null
+  error?: string
+}
+
+/**
+ * Completion Prediction Engine
+ * Uses ML model to predict when the user will complete their learning track
+ * based on their study patterns and remaining work.
+ */
+export async function getCompletionPrediction(): Promise<GetCompletionPredictionResult> {
+  try {
+    const supabase = await createClient()
+
+    // Get the current user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return { prediction: null, error: 'Unauthorized: User not authenticated' }
+    }
+
+    // Fetch user's selected domain
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('selected_domain_id')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || !profile?.selected_domain_id) {
+      return { prediction: null, error: 'No domain selected' }
+    }
+
+    // Fetch all study sessions for the user
+    const { data: studySessions, error: sessionsError } = await supabase
+      .from('study_sessions')
+      .select('started_at, duration_seconds')
+      .eq('user_id', user.id)
+      .order('started_at', { ascending: true })
+
+    if (sessionsError) {
+      return { prediction: null, error: `Failed to fetch study sessions: ${sessionsError.message}` }
+    }
+
+    if (!studySessions || studySessions.length < 3) {
+      return {
+        prediction: {
+          status: 'insufficient_data',
+          message: 'Need at least 3 study sessions to predict.',
+        },
+      }
+    }
+
+    // Fetch all skills for the user's domain with their progress
+    const { data: domainSkills, error: skillsError } = await supabase
+      .from('domain_skills')
+      .select(`
+        skill_id,
+        skills (
+          id,
+          difficulty_level
+        )
+      `)
+      .eq('domain_id', profile.selected_domain_id)
+
+    if (skillsError) {
+      return { prediction: null, error: `Failed to fetch skills: ${skillsError.message}` }
+    }
+
+    if (!domainSkills || domainSkills.length === 0) {
+      return { prediction: null, error: 'No skills found for this domain' }
+    }
+
+    // Get all skill IDs
+    const skillIds = domainSkills
+      .map((ds) => (ds.skills as any)?.id)
+      .filter((id): id is string => id != null)
+
+    // Fetch user progress to identify incomplete skills
+    const { data: userProgress, error: progressError } = await supabase
+      .from('user_progress')
+      .select('skill_id, status')
+      .eq('user_id', user.id)
+      .in('skill_id', skillIds)
+
+    if (progressError) {
+      return { prediction: null, error: `Failed to fetch progress: ${progressError.message}` }
+    }
+
+    // Create a set of completed skill IDs
+    const completedSkillIds = new Set(
+      userProgress?.filter((p) => p.status === 'completed').map((p) => p.skill_id) || []
+    )
+
+    // Calculate remaining hours (sum of difficulty_level * 2 for incomplete skills)
+    let remaining_hours = 0
+    for (const ds of domainSkills) {
+      const skill = ds.skills as any
+      if (!skill || !skill.id) continue
+
+      // If skill is not completed, add to remaining hours
+      if (!completedSkillIds.has(skill.id)) {
+        const difficultyLevel = skill.difficulty_level ?? 1
+        remaining_hours += difficultyLevel * 2
+      }
+    }
+
+    // If no remaining hours, user has completed everything
+    if (remaining_hours === 0) {
+      return {
+        prediction: {
+          status: 'success',
+          predicted_date: new Date().toISOString().split('T')[0],
+          message: 'All skills completed!',
+        },
+      }
+    }
+
+    // Group study sessions by date and sum hours
+    const sessionsByDate = new Map<string, number>()
+    for (const session of studySessions) {
+      const date = session.started_at.split('T')[0] // Extract date part (YYYY-MM-DD)
+      const hours = session.duration_seconds / 3600 // Convert seconds to hours
+      const existing = sessionsByDate.get(date) || 0
+      sessionsByDate.set(date, existing + hours)
+    }
+
+    // Format sessions for the ML API
+    const sessions: StudySession[] = Array.from(sessionsByDate.entries())
+      .map(([date, hours]) => ({
+        date,
+        hours: parseFloat(hours.toFixed(2)),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+
+    // Prepare prediction request
+    const predictionRequest: PredictionRequest = {
+      sessions,
+      remaining_hours: parseFloat(remaining_hours.toFixed(2)),
+    }
+
+    // Call the Python ML API
+    try {
+      const response = await fetch('http://127.0.0.1:8000/predict', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(predictionRequest),
+      })
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`)
+      }
+
+      const prediction: PredictionResponse = await response.json()
+
+      return { prediction }
+    } catch (fetchError) {
+      console.error('Error calling prediction API:', fetchError)
+      return {
+        prediction: null,
+        error:
+          fetchError instanceof Error
+            ? `Prediction service unavailable: ${fetchError.message}`
+            : 'Prediction service unavailable',
+      }
+    }
+  } catch (error) {
+    console.error('Error in getCompletionPrediction:', error)
+    return {
+      prediction: null,
+      error: error instanceof Error ? error.message : 'Failed to generate prediction',
+    }
+  }
+}
