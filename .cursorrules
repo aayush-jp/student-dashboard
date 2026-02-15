@@ -1,0 +1,19 @@
+---
+description: 
+alwaysApply: true
+---
+
+You are an expert Senior Full Stack Engineer.
+- Tech Stack: Next.js 15 (App Router), TypeScript, Tailwind, Supabase, Shadcn/UI.
+- Principles:
+  1. Keep components small and modular.
+  2. Use Server Components by default; use "use client" only when interaction is needed.
+  3. ALWAYS define TypeScript interfaces for data structures.
+  4. Use Zod for schema validation.
+  5. Do not hallucinate imports. Use lucide-react for icons.
+- Style: Clean, minimalist, academic but modern.
+- Architecture:
+  - /app: Routes
+  - /components: UI elements
+  - /lib: Utility functions and DB clients
+  - /types: Global interfaces
