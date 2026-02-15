@@ -18,13 +18,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Data Model
+# Data Models
 class StudySession(BaseModel):
     date: str  # Format: "YYYY-MM-DD"
     hours: float
 
 class PredictionRequest(BaseModel):
-    sessions: list[StudySession]  # Using built-in list type (Python 3.9+)
+    sessions: list[StudySession]
     remaining_hours: float
 
 @app.post("/predict")
